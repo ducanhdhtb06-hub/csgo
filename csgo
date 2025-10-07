@@ -1,0 +1,43 @@
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler , OneHotEncoder
+from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
+from sklearn.model_selection import GridSearchCV
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+
+data = pd.read_csv("csgo.csv")
+target = "result"
+x = data.drop(["result" ,  "day", "month" , "year" , "date" , "wait_time_s", "match_time_s" , "team_a_rounds", "team_b_rounds" ,"ping" ], axis = 1)
+y = data["result"]
+x_train , x_test , y_train , y_test = train_test_split(x,y,test_size = 0.2, random_state = 42)
+
+cotso1 = x_train.drop(["map"],axis = 1).columns
+
+num_transformer = Pipeline(steps = [
+    ("imputer" ,SimpleImputer(strategy = "median")) ,
+    ("scaler" ,StandardScaler())
+])
+
+nom_transformer = Pipeline(steps= [
+    ("imputer" , SimpleImputer(strategy="constant", fill_value = "unknown" )) ,
+    ("encoder" , OneHotEncoder() )
+])
+preprocessor = ColumnTransformer(transformers = [
+    ("num_feature" , num_transformer,   cotso1) ,
+    ("nom_feature", nom_transformer , ["map"])
+])
+x_train = preprocessor.fit_transform(x_train)
+x_test = preprocessor.transform(x_test)
+parameters = {
+    "n_estimators": [50, 100, 200, 500],
+    "criterion": ["gini", "entropy", "log_loss"],
+    "max_depth": [None, 5, 10],
+    "max_features": ["sqrt", "log2"],
+}
+cls =  GridSearchCV(RandomForestClassifier(), param_grid=parameters, scoring="precision_weighted", cv=6, verbose=2, n_jobs=8)
+cls.fit(x_train , y_train)
+y_pred = cls.predict(x_test)
+print(classification_report(y_test, y_pred))
